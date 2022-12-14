@@ -1,9 +1,9 @@
 require(shiny)
 require(ggplot2)
 library(DT)
+library(leaflet)
 
-
-##Global
+## Global
 
 ### Distance matrix
 n <- 20
@@ -18,6 +18,11 @@ City_chars <-    cbind.data.frame(City = 1:n,
                                   Continent = sample(LETTERS[1:7], n, replace = TRUE)
 )
 
+coords <- read.csv("cities_coords.csv")
+City_chars <- cbind.data.frame(City_chars, coords[1:n,c("x", "y")])
+
+
+### UI
 
 ui <- fluidPage(
   titlePanel("Compare cities"),
@@ -34,8 +39,11 @@ ui <- fluidPage(
       width = 3
     )
   ),
-  plotOutput('plot1')
+  leafletOutput("mymap")
 )
+
+
+## Server
 
 server <- function(input, output) {
   # Read data.
@@ -104,13 +112,22 @@ server <- function(input, output) {
     m[input$table_rows_all, ]  
   })
   
-  output$plot1 <- renderPlot({
+  filtered_table2 <- reactive({
     req(input$table_rows_all)
-    if(nrow(filtered_table() > 0 & !is.null(input$clusterFilter)
-            & !is.null(input$modelFilter) )){
-    plot(filtered_table()$distance, filtered_table()$distance, col = "red", lwd = 10)
-    }
-    })
+    subsetCities <- filtered_table()
+    tCities <- as.numeric(unique(unlist(subsetCities[,c(1,2)])))
+    tCities <- tCities[which( tCities !=  input$city)]
+    City_chars[City_chars$City %in% tCities,]
+  })
+
+  output$mymap <- renderLeaflet({
+    leaflet() %>%
+      addProviderTiles(providers$Stamen.TonerLite,
+                       options = providerTileOptions(noWrap = TRUE)
+      ) %>%
+      addMarkers(data = filtered_table2(), lng = ~x, lat = ~y)
+  })
+  
   
 }
 
