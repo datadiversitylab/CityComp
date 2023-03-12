@@ -3,18 +3,13 @@ require(ggplot2)
 library(DT)
 library(leaflet)
 library(feather)
+library(shinydashboard)
+library(shinybusy)
+library(dashboardthemes)
 
 ## Global
-
-### Distance matrix
-#x <- feather::read_feather("data/pca_dists2.feather")
-#x <- data.frame(x)
-#row.names(x) <- colnames(x)
-#xy <- t(combn(colnames(x), 2))
-#test <- data.frame(xy, dist=x[xy])
-#names(test) <- c("c1", "c2", "distance")
-#write_feather(test, "data/pca_dists2.long.feather")
-m <- feather::read_feather("data/pca_dists2.long.feather")
+#m <- read_csv("data/pca_dists2.csv.gz")
+m <- fread("data/pca_dists2.csv.gz")
 
 ### City characteristics
 City_chars <- read.csv("data/cities_stabilities_k6.csv")
@@ -26,21 +21,51 @@ City_chars <- cbind.data.frame(City_chars, coords)
 
 ### UI
 
-ui <- fluidPage(
-  titlePanel("Compare cities"),
-  br(),
-  uiOutput(outputId = "distanceTab"),
-  sidebarLayout(
-    mainPanel(
-      DT::dataTableOutput("table"),
-      width = 9
-    ),
-    sidebarPanel(
-      uiOutput(outputId = "ClusterFilter"),
-      width = 3
-    )
+header <- dashboardHeader(title = "City comparison",
+                          titleWidth = 200)
+
+body <- dashboardBody(
+  add_busy_spinner(spin = "dots",
+                   timeout = 10,
+                   height = "25px",
+                   width = "25px"),
+  shinyDashboardThemes(
+    theme = "grey_light"
   ),
-  leafletOutput("mymap")
+  tags$head(
+    tags$link(rel = "stylesheet", type = "text/css", href = "custom.css")),
+  fluidRow(
+    column(width = 4,
+           box(width = NULL,title = tagList(shiny::icon("info-circle",class = 'fa-lg'), "About the app"), solidHeader = T, collapsible = T, status = 'primary',
+               strong("CityComp"),"is an interactive shiny app which allows you to compare cities across the globe."
+           ),
+           box(width = NULL, title = tagList(shiny::icon("filter",class = 'fa-lg'), "Filters") ,
+               solidHeader = T, collapsible = T, status = 'primary',
+               uiOutput("cities"),
+               uiOutput("clusters")
+           ),
+           box(width = NULL, title = tagList(shiny::icon("gear",class = 'fa-lg'), "Run") ,
+               solidHeader = T, collapsible = T, status = 'primary',
+               "Once you have selected the city and clusters, please make sure you run the filter:",
+               br(),
+               actionButton("method", "Run")
+           ),
+           box(width = NULL, title = tagList(shiny::icon("laptop-code",class = 'fa-lg'), "Code") ,
+               solidHeader = T, collapsible = T, status = 'primary',
+               a(icon("github",class = 'fa-lg'), ' GitHub repository', href = 'https://github.com/cromanpa94/vessels.app', target = "_blank"))
+    ),
+    column(width = 8,
+           box(width = NULL, solidHeader = TRUE,
+               DT::dataTableOutput("table")
+           )
+    )
+  )
+)
+
+ui <- dashboardPage(skin = 'black',
+                    header,
+                    dashboardSidebar(disable = T),
+                    body
 )
 
 
@@ -51,16 +76,26 @@ server <- function(input, output) {
   df <- m
   
   # Get distanceTab
-  output$distanceTab <- renderUI({
+  output$cities <- renderUI({
     selectizeInput(
-      inputId = "city",
+      inputId = "cities",
       label = "Select a city",
-      choices = c("", as.character(unique(City_chars$City))),
+      choices = c("", as.character(unique(colnames(m)[-1], m$c1 ))),
+      selected = 2,
+      options = list(maxOptions = 100)
+    )})
+  
+  
+  output$clusters <- renderUI({
+    selectizeInput(
+      inputId = "clusters",
+      label = "Select a cluster",
+      choices = c("", as.character(unique(City_chars$Cluster))),
       selected = 1,
       options = list(maxOptions = 100)
     )})
   
-  # Subset data by city.
+  # Subset data
   df2 <-
     reactive({
       df2 <- droplevels(m[m$c1 == input$city | m$c2 == input$city,])
