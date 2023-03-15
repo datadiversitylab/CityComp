@@ -12,7 +12,6 @@ library(reshape2)
 ## Global
 #m <- read_csv("data/pca_dists2.csv.gz")
 m <- fread("data/pca_dists2.csv.gz")
-m <- na.omit(melt(m))
 
 ### City characteristics
 City_chars <- read.csv("data/cities_stabilities_k6.csv")
@@ -67,15 +66,14 @@ ui <- dashboardPage(skin = 'black',
 ## Server
 
 server <- function(input, output) {
-
+  
   # Get filters
   output$cities <- renderUI({
-    selectizeInput(
+    selectInput(
       inputId = "cities",
       label = "Select a city",
-      choices = unique(m[,1]),
-      selected = 1,
-      options = list(maxOptions = 100)
+      choices = c(Choose = unique(as.vector(m[,1]))),
+      selectize = TRUE
     )})
   
   output$clusters <- renderUI({
@@ -89,8 +87,26 @@ server <- function(input, output) {
   
   # Filter the table
   table <- reactive({
-    d1 <- m[m$c1 == input$cities,]
-    d1
+    x = input$cities 
+    if(length(x) != 0){
+      if(x != "Aalborg"){
+        d1 <- m[, ..x]
+        d1 <- cbind(cities = m$c1, d1)
+        colnames(d1)[2] <- "distance"
+        d2 <- data.frame(distance = t(m[c1 == x])[-1,])
+        d2 <- cbind(cities = row.names(d2), distance = d2)
+        row.names(d2) <- NULL
+        dtot <- rbind.data.frame(d1, d2)
+        dtot <- na.omit(dtot)
+      }else{
+        d2 <- data.frame(distance = t(m[c1 == x])[-1,])
+        d2 <- cbind(cities = row.names(d2), distance = d2)
+        row.names(d2) <- NULL  
+        dtot <- na.omit(d2)
+      }
+      dtot <- dtot[order(dtot$distance),] 
+      dtot
+    }
   })
   
   # Plot table
