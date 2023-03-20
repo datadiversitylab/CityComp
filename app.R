@@ -11,6 +11,7 @@ library(reshape2)
 library(shinyWidgets)
 library(leaflet.extras)
 library(plotly)
+library(R.utils)
 
 ## Global
 #m <- read_csv("data/pca_dists2.csv.gz")

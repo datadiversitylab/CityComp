@@ -103,6 +103,81 @@
         "Built": "R 4.2.0; x86_64-apple-darwin17.0; 2022-04-23 00:04:20 UTC; unix"
       }
     },
+    "R.methodsS3": {
+      "Source": "CRAN",
+      "Repository": "https://cran.rstudio.com/",
+      "description": {
+        "Package": "R.methodsS3",
+        "Version": "1.8.1",
+        "Depends": "R (>= 2.13.0)",
+        "Imports": "utils",
+        "Suggests": "codetools",
+        "Title": "S3 Methods Simplified",
+        "Authors@R": "c(person(\"Henrik\", \"Bengtsson\", role=c(\"aut\", \"cre\", \"cph\"),\n                                          email = \"henrikb@braju.com\"))",
+        "Author": "Henrik Bengtsson [aut, cre, cph]",
+        "Maintainer": "Henrik Bengtsson <henrikb@braju.com>",
+        "Description": "Methods that simplify the setup of S3 generic functions and S3 methods.  Major effort has been made in making definition of methods as simple as possible with a minimum of maintenance for package developers.  For example, generic functions are created automatically, if missing, and naming conflict are automatically solved, if possible.  The method setMethodS3() is a good start for those who in the future may want to migrate to S4.  This is a cross-platform package implemented in pure R that generates standard S3 methods.",
+        "License": "LGPL (>= 2.1)",
+        "LazyLoad": "TRUE",
+        "URL": "https://github.com/HenrikBengtsson/R.methodsS3",
+        "BugReports": "https://github.com/HenrikBengtsson/R.methodsS3/issues",
+        "NeedsCompilation": "no",
+        "Packaged": "2020-08-24 14:42:23 UTC; hb",
+        "Repository": "CRAN",
+        "Date/Publication": "2020-08-26 16:20:06 UTC",
+        "Built": "R 4.2.0; ; 2022-04-25 03:44:27 UTC; unix"
+      }
+    },
+    "R.oo": {
+      "Source": "CRAN",
+      "Repository": "https://cran.rstudio.com/",
+      "description": {
+        "Package": "R.oo",
+        "Version": "1.24.0",
+        "Depends": "R (>= 2.13.0), R.methodsS3 (>= 1.8.0)",
+        "Imports": "methods, utils",
+        "Suggests": "tools",
+        "Title": "R Object-Oriented Programming with or without References",
+        "Authors@R": "c(person(\"Henrik\", \"Bengtsson\", role=c(\"aut\", \"cre\", \"cph\"),\n                                          email = \"henrikb@braju.com\"))",
+        "Author": "Henrik Bengtsson [aut, cre, cph]",
+        "Maintainer": "Henrik Bengtsson <henrikb@braju.com>",
+        "Description": "Methods and classes for object-oriented programming in R with or without references.  Large effort has been made on making definition of methods as simple as possible with a minimum of maintenance for package developers.  The package has been developed since 2001 and is now considered very stable.  This is a cross-platform package implemented in pure R that defines standard S3 classes without any tricks.",
+        "License": "LGPL (>= 2.1)",
+        "LazyLoad": "TRUE",
+        "URL": "https://github.com/HenrikBengtsson/R.oo",
+        "BugReports": "https://github.com/HenrikBengtsson/R.oo/issues",
+        "NeedsCompilation": "no",
+        "Packaged": "2020-08-24 16:24:06 UTC; hb",
+        "Repository": "CRAN",
+        "Date/Publication": "2020-08-26 16:11:58 UTC",
+        "Built": "R 4.2.0; ; 2022-04-26 09:08:26 UTC; unix"
+      }
+    },
+    "R.utils": {
+      "Source": "CRAN",
+      "Repository": "https://cran.rstudio.com/",
+      "description": {
+        "Package": "R.utils",
+        "Version": "2.11.0",
+        "Depends": "R (>= 2.14.0), R.oo (>= 1.24.0)",
+        "Imports": "methods, utils, tools, R.methodsS3 (>= 1.8.1)",
+        "Suggests": "digest (>= 0.6.10)",
+        "Title": "Various Programming Utilities",
+        "Authors@R": "c(person(\"Henrik\", \"Bengtsson\", role=c(\"aut\", \"cre\", \"cph\"),\n                                          email = \"henrikb@braju.com\"))",
+        "Author": "Henrik Bengtsson [aut, cre, cph]",
+        "Maintainer": "Henrik Bengtsson <henrikb@braju.com>",
+        "Description": "Utility functions useful when programming and developing R packages.",
+        "License": "LGPL (>= 2.1)",
+        "LazyLoad": "TRUE",
+        "URL": "https://github.com/HenrikBengtsson/R.utils",
+        "BugReports": "https://github.com/HenrikBengtsson/R.utils/issues",
+        "NeedsCompilation": "no",
+        "Packaged": "2021-09-26 07:18:48 UTC; hb",
+        "Repository": "CRAN",
+        "Date/Publication": "2021-09-26 08:30:02 UTC",
+        "Built": "R 4.2.0; ; 2022-04-26 22:49:55 UTC; unix"
+      }
+    },
     "R6": {
       "Source": "CRAN",
       "Repository": "https://cran.rstudio.com/",
@@ -2533,7 +2608,7 @@
   },
   "files": {
     "app.R": {
-      "checksum": "7dbe5085fe8c3962ebf9163cff08f0c3"
+      "checksum": "98350734e91a8e36d5c7ea20c90daf62"
     },
     "data/.DS_Store": {
       "checksum": "194577a7e20bdcc7afbb718f502c134c"
