@@ -14,21 +14,10 @@ library(plotly)
 library(R.utils)
 
 ## Global
-#m <- read_csv("data/pca_dists2.csv.gz")
-m <- fread("data/pca_dists2.csv.gz")
-namesds <- unlist(c(m[1,1], colnames(m)[-1]))
-
-### City characteristics
-City_chars <- read.csv("data/cities_stabilities_k6.csv")
-colnames(City_chars)[2] <- "Continent"
-
-coords <- read.csv("data/cities_coords.csv")
-City_chars <- cbind.data.frame(namesds,City_chars, coords)
-
-#PCA
-dataScaled <- read.csv("data/cities_scaled.csv")
-pc <- princomp(dataScaled[,-c(1:2)])
-PCAdata <- data.frame(pc$scores,"cluster"=factor(City_chars$Cluster))
+m <- data.table::fread(file = here("data", "clim_only_30s_cluster_data", "dists.csv.gz"))
+clim_30s <- read.csv(here("data", "clim_only_30s_cluster_data", "cities_5.csv"))
+City_chars <- clim_30s[,c(1:5,26)]
+City_pcs <- clim_30s[,c(27, 28)]
 
 ### UI
 header <- dashboardHeader(title = "City comparison",
@@ -105,7 +94,7 @@ server <- function(input, output) {
     pickerInput(
       inputId = "cities",
       label = "Select target city",
-      choices = unique(City_chars$namesds),
+      choices = unique(City_chars$City),
       options = list(`live-search`=TRUE)
     )})
   
@@ -124,8 +113,8 @@ server <- function(input, output) {
     pickerInput(
       inputId = "continent",
       label = "Select target continent(s)",
-      choices = c(as.character(unique(City_chars$Continent))),
-      selected = c(as.character(unique(City_chars$Continent))),
+      choices = c(as.character(unique(City_chars$Region))),
+      selected = c(as.character(unique(City_chars$Region))),
       options = list(`actions-box` = TRUE),
       multiple = TRUE
     )})
@@ -146,43 +135,33 @@ server <- function(input, output) {
     z = input$continent
     
     if(length(x) != 0 & length(y) != 0 & length(z) != 0){
-      if(x != "Aalborg"){
-        d1 <- m[, ..x]
-        d1 <- cbind(cities = m$c1, d1)
+        d1 <- data.frame(m[, ..x])
+        d1 <- cbind(cities = colnames(m), d1)
         colnames(d1)[2] <- "distance"
-        d2 <- data.frame(distance = t(m[c1 == x])[-1,])
-        d2 <- cbind(cities = row.names(d2), distance = d2)
-        row.names(d2) <- NULL
-        dtot <- rbind.data.frame(d1, d2)
-        dtot <- na.omit(dtot)
-      }else{
-        d2 <- data.frame(distance = t(m[c1 == x])[-1,])
-        d2 <- cbind(cities = row.names(d2), distance = d2)
-        row.names(d2) <- NULL  
-        dtot <- na.omit(d2)
-      }
-      dtot <- dtot[order(dtot$distance),] 
-      # Filter cluster and continent
+        dtot <- na.omit(d1)
+        dtot <- dtot[order(dtot$distance),] 
+      
+        # Filter cluster and continent
       tcities <- City_chars[City_chars$Cluster %in% y & 
-                                      City_chars$Continent %in% z,1]
+                                      City_chars$Region %in% z,1]
       dtot <- data.frame(dtot)
       dtot <- dtot[dtot$cities %in% tcities,]
       row.names(dtot) <- NULL
       
       #Plot map
-      tcity <- City_chars[City_chars$namesds %in% x,]
+      tcity <- City_chars[City_chars$City %in% x,]
       leafletProxy("Map", data = tcity) %>%
         clearMarkers() %>%
         clearShapes() %>%
         addAwesomeMarkers(data = tcity,
-                          lng = ~ x, lat = ~ y,
+                          lng = ~ Longitude, lat = ~ Latitude,
                           label = lapply(tcity$City, htmltools::HTML),
                           icon = makeAwesomeIcon(
                             markerColor = "red",
                             library = "fa",
                             iconColor = "#FFFFFF"
                           )) %>%
-        flyToBounds(~min(x), ~min(y), ~max(x), ~max(y))
+        flyToBounds(~min(Longitude), ~min(Latitude), ~max(Longitude), ~max(Latitude))
       dtot
     }
   })
@@ -202,22 +181,22 @@ server <- function(input, output) {
         clearMarkers() %>%
         clearShapes() %>%
        addAwesomeMarkers(data = tcity,
-                         lng = ~ x, lat = ~ y,
+                         lng = ~ Longitude, lat = ~ Latitude,
                          label = lapply(tcity$City, htmltools::HTML),
                          icon = makeAwesomeIcon(
                            markerColor = "red",
                            library = "fa",
                            iconColor = "#FFFFFF"
                          )) %>%
-       flyToBounds(~min(x), ~min(y), ~max(x), ~max(y))
+       flyToBounds(~min(Longitude), ~min(Latitude), ~max(Longitude), ~max(Latitude))
      }
   })
   
   # PCA
   
   output$plotPCA <- renderPlotly({
-  p <- plot_ly(PCAdata,x=~Comp.1,y=~Comp.2,text=~City_chars$City,
-               mode="markers",color = ~cluster)
+  p <- plot_ly(City_pcs,x=~PC1,y=~PC2,text=~City_chars$City,
+               mode="markers",color = ~City_chars$Cluster)
   p <- layout(p,title="PCA Clusters",
               xaxis=list(title="PC1"),
               yaxis=list(title="PC2"))
