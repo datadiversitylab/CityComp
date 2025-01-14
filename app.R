@@ -12,12 +12,7 @@ library(shinyWidgets)
 library(leaflet.extras)
 library(plotly)
 library(R.utils)
-
-## Global
-m <- data.table::fread(file = here("data", "clim_only_30s_cluster_data", "dists.csv.gz"))
-clim_30s <- read.csv(here("data", "clim_only_30s_cluster_data", "cities_5.csv"))
-City_chars <- clim_30s[,c(1:5,26)]
-City_pcs <- clim_30s[,c(27, 28)]
+library(here)
 
 ### UI
 header <- dashboardHeader(title = "City comparison",
@@ -40,6 +35,7 @@ body <- dashboardBody(
            ),
            box(width = NULL, title = tagList(shiny::icon("filter",class = 'fa-lg'), "Filters") ,
                solidHeader = T, collapsible = T, status = 'primary',
+               uiOutput("dataset"),
                uiOutput("cities"),
                uiOutput("continent"),
                uiOutput("clusters")
@@ -87,124 +83,196 @@ ui <- dashboardPage(skin = 'black',
 
 ## Server
 
-server <- function(input, output) {
+server <- function(input, output, session) {
   
-  # Get filters
+  # Dataset selection UI
+  output$dataset <- renderUI({
+    pickerInput(
+      inputId = "dataset",
+      label = "Select Dataset",
+      choices = c("Human Only" = "human", 
+                  "Climate Only" = "climate", 
+                  "Combined" = "combined"),
+      selected = "human",
+      options = list(`actions-box` = FALSE)
+    )
+  })
+  
+  # Reactive expression to load data based on selected dataset
+  selectedData <- reactive({
+    req(input$dataset)
+    
+    if (input$dataset == "climate") {
+      # Climate Only
+      m <- data.table::fread(file = here("data", "clim_only_30s_cluster_data", "dists.csv.gz"))
+      clim_30s <- read.csv(here("data", "clim_only_30s_cluster_data", "cities_5.csv"))
+      City_chars <- clim_30s[, c(1:5, 26)]
+      City_pcs <- clim_30s[, c(27, 28)]
+      
+    } else if (input$dataset == "combined") {
+      # Combined
+      m <- data.table::fread(file = here("data", "combined_30s_cluster_data", "dists.csv.gz"))
+      comb_30s <- read.csv(here("data", "combined_30s_cluster_data", "cities_6.csv"))
+      City_chars <- comb_30s[, c(1:5, 36)]
+      City_pcs <- comb_30s[, c(37, 38)]
+      
+    } else {  # Human Only
+      # Human Only
+      dataScaled <- read.csv(here("data", "cities_scaled.csv"), row.names = 1)
+      datacoords <- read.csv(here("data", "cities_coords.csv"), row.names = 1)
+      pc <- princomp(dataScaled[,c(3:12)])
+      km.res <- kmeans(dataScaled[,c(3:12)], 6)
+      PCAdata <- data.frame(pc$scores, "cluster" = factor(km.res$cluster))
+      City_chars <- cbind.data.frame(City = row.names(dataScaled), 
+                                     Region =  dataScaled$Region, 
+                                     Cluster = km.res$cluster, 
+                                     Longitude =  datacoords$x,
+                                     Latitude = datacoords$y)
+      City_pcs <- PCAdata[,c(1,2)]
+      colnames(City_pcs) <- c("PC1", "PC2")
+    }
+    
+    list(m = m, City_chars = City_chars, City_pcs = City_pcs)
+  })
+  
+  
+  
   output$cities <- renderUI({
+    req(selectedData()) 
     pickerInput(
       inputId = "cities",
       label = "Select target city",
-      choices = unique(City_chars$City),
-      options = list(`live-search`=TRUE)
-    )})
+      choices = unique(selectedData()$City_chars$City),
+      options = list(`live-search` = TRUE)
+    )
+  })
   
   output$clusters <- renderUI({
+    req(selectedData()) 
     pickerInput(
       inputId = "clusters",
       label = "Select target cluster(s)",
-      choices = c(as.character(unique(City_chars$Cluster))),
-      selected = c(as.character(unique(City_chars$Cluster))),
+      choices = as.character(unique(selectedData()$City_chars$Cluster)),
+      selected = as.character(unique(selectedData()$City_chars$Cluster)),
       options = list(`actions-box` = TRUE),
       multiple = TRUE
-    )})
-  
+    )
+  })
   
   output$continent <- renderUI({
+    req(selectedData())
     pickerInput(
       inputId = "continent",
       label = "Select target continent(s)",
-      choices = c(as.character(unique(City_chars$Region))),
-      selected = c(as.character(unique(City_chars$Region))),
+      choices = as.character(unique(selectedData()$City_chars$Region)),
+      selected = as.character(unique(selectedData()$City_chars$Region)),
       options = list(`actions-box` = TRUE),
       multiple = TRUE
-    )})
+    )
+  })
   
   # Base map
   output$Map <- renderLeaflet({
-    leaflet(options = leafletOptions(
-                      attributionControl = FALSE)) %>% 
+    leaflet(options = leafletOptions(attributionControl = FALSE)) %>% 
       addTiles() %>%
       addProviderTiles(providers$Esri.WorldPhysical) %>%
       addFullscreenControl()
   })
   
-  # Filter the table
+  # Filter the table using reactive data
   table <- reactive({
-    x <<- input$cities
-    y = input$clusters
-    z = input$continent
+    data <- selectedData()
+    m <- data$m
+    City_chars <- data$City_chars
+    
+    x <- input$cities
+    y <- input$clusters
+    z <- input$continent
     
     if(length(x) != 0 & length(y) != 0 & length(z) != 0){
-        d1 <- data.frame(m[, ..x])
-        d1 <- cbind(cities = colnames(m), d1)
-        colnames(d1)[2] <- "distance"
-        dtot <- na.omit(d1)
-        dtot <- dtot[order(dtot$distance),] 
+      d1 <- data.frame(m[, ..x])
+      d1 <- cbind(cities = colnames(m), d1)
+      colnames(d1)[2] <- "distance"
+      dtot <- na.omit(d1)
+      dtot <- dtot[order(dtot$distance),] 
       
-        # Filter cluster and continent
+      # Filter cluster and continent
       tcities <- City_chars[City_chars$Cluster %in% y & 
-                                      City_chars$Region %in% z,1]
-      dtot <- data.frame(dtot)
-      dtot <- dtot[dtot$cities %in% tcities,]
+                              City_chars$Region %in% z, "City"]
+      dtot <- dtot[-1, ]  # Remove the first row if it's the target city
+      dtot <- dtot[dtot$cities %in% tcities, ]
       row.names(dtot) <- NULL
       
-      #Plot map
-      tcity <- City_chars[City_chars$City %in% x,]
+      # Plot map
+      tcity <- City_chars[City_chars$City %in% x, ]
       leafletProxy("Map", data = tcity) %>%
         clearMarkers() %>%
         clearShapes() %>%
-        addAwesomeMarkers(data = tcity,
-                          lng = ~ Longitude, lat = ~ Latitude,
-                          label = lapply(tcity$City, htmltools::HTML),
-                          icon = makeAwesomeIcon(
-                            markerColor = "red",
-                            library = "fa",
-                            iconColor = "#FFFFFF"
-                          )) %>%
+        addAwesomeMarkers(
+          data = tcity,
+          lng = ~ Longitude, lat = ~ Latitude,
+          label = ~City,
+          icon = makeAwesomeIcon(
+            markerColor = "red",
+            library = "fa",
+            iconColor = "#FFFFFF"
+          )
+        ) %>%
         flyToBounds(~min(Longitude), ~min(Latitude), ~max(Longitude), ~max(Latitude))
+      
       dtot
     }
   })
   
-  # Plot table
+  # Render the filtered table
   output$table <- DT::renderDataTable({
-    datatable(table(), options = list(lengthChange = FALSE, searching = FALSE) )
+    datatable(table(), options = list(lengthChange = FALSE, searching = FALSE))
   })
   
-  
+  # Observe table row selections to update the map
   observe({
-    tdt <- table()[input$table_rows_selected,]
-    tcity <- City_chars[City_chars$namesds %in% c(tdt$cities, x),]
-
+    data <- selectedData()
+    City_chars <- data$City_chars
+    
+    tdt <- table()[input$table_rows_selected, ]
+    tcity <- City_chars[City_chars$City %in% c(tdt$cities, input$cities), ]
+    
     if(nrow(tcity)){
-     leafletProxy("Map", data = tcity) %>%
+      leafletProxy("Map", data = tcity) %>%
         clearMarkers() %>%
         clearShapes() %>%
-       addAwesomeMarkers(data = tcity,
-                         lng = ~ Longitude, lat = ~ Latitude,
-                         label = lapply(tcity$City, htmltools::HTML),
-                         icon = makeAwesomeIcon(
-                           markerColor = "red",
-                           library = "fa",
-                           iconColor = "#FFFFFF"
-                         )) %>%
-       flyToBounds(~min(Longitude), ~min(Latitude), ~max(Longitude), ~max(Latitude))
-     }
+        addAwesomeMarkers(
+          data = tcity,
+          lng = ~ Longitude, lat = ~ Latitude,
+          label = ~City,
+          icon = makeAwesomeIcon(
+            markerColor = "red",
+            library = "fa",
+            iconColor = "#FFFFFF"
+          )
+        ) %>%
+        flyToBounds(~min(Longitude), ~min(Latitude), ~max(Longitude), ~max(Latitude))
+    }
   })
   
-  # PCA
-  
+  # PCA Plot using reactive data
   output$plotPCA <- renderPlotly({
-  p <- plot_ly(City_pcs,x=~PC1,y=~PC2,text=~City_chars$City,
-               mode="markers",color = ~City_chars$Cluster)
-  p <- layout(p,title="PCA Clusters",
-              xaxis=list(title="PC1"),
-              yaxis=list(title="PC2"))
-  p
+    data <- selectedData()
+    plot_ly(
+      data = data$City_pcs,
+      x = ~PC1, y = ~PC2,
+      text = ~data$City_chars$City,
+      mode = "markers",
+      color = ~data$City_chars$Cluster,
+      type = 'scatter',
+      marker = list(size = 10)
+    ) %>%
+      layout(
+        title = "PCA Clusters",
+        xaxis = list(title = "PC1"),
+        yaxis = list(title = "PC2")
+      )
   })
-  
-  
-
   
 }
 
