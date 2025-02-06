@@ -62,7 +62,8 @@ body <- dashboardBody(
                   please update the (1) continent-ish like filter or (2) the cluster-based one.
                   Distances between cities can be visualized on the PCA plot in this app. Clusters are 
                   based on KNN analyses. The app also includes a map that gets updated in accordance with
-                  the target city and the rows selected by clicking in the PCA-based distance table."),
+                  the target city and the rows selected by clicking in the PCA-based distance table. Note that the
+                  visualization for the human-only dataset is limited to c(-15, 15) for illustration purposes."),
                ),
            box(width = NULL, title = tagList(shiny::icon("tachometer-alt", class = 'fa-lg'), "PCA") ,
                solidHeader = TRUE, collapsible = TRUE, status = 'primary',
@@ -90,10 +91,10 @@ server <- function(input, output, session) {
     pickerInput(
       inputId = "dataset",
       label = "Select Dataset",
-      choices = c("Human Only" = "human", 
-                  "Climate Only" = "climate", 
-                  "Combined" = "combined"),
-      selected = "human",
+      choices = c("Climate Only" = "climate", 
+                  "Combined" = "combined",
+                  "Human Only" = "human"),
+      selected = "combined",
       options = list(`actions-box` = FALSE)
     )
   })
@@ -130,9 +131,15 @@ server <- function(input, output, session) {
                                      Latitude = datacoords$y)
       City_pcs <- PCAdata[,c(1,2)]
       colnames(City_pcs) <- c("PC1", "PC2")
+      m <- as.matrix(dist(City_pcs, method = "euclidean", 
+                          diag = FALSE, upper = FALSE))
+      City_chars$Cluster <- sapply(City_chars$Cluster, function(x) LETTERS[x])
+      m <- round(m, 3)
     }
     
-    list(m = m, City_chars = City_chars, City_pcs = City_pcs)
+
+    
+    list(m = data.table(m), City_chars = City_chars, City_pcs = City_pcs)
   })
   
   
@@ -258,7 +265,7 @@ server <- function(input, output, session) {
   # PCA Plot using reactive data
   output$plotPCA <- renderPlotly({
     data <- selectedData()
-    plot_ly(
+    plot_p <- plot_ly(
       data = data$City_pcs,
       x = ~PC1, y = ~PC2,
       text = ~data$City_chars$City,
@@ -272,6 +279,17 @@ server <- function(input, output, session) {
         xaxis = list(title = "PC1"),
         yaxis = list(title = "PC2")
       )
+    
+    if(input$dataset == "human"){
+      plot_p  %>% layout(
+        xaxis = list(
+          range=c(-15,15)
+        )
+      )
+    } else{
+      plot_p
+    }
+    
   })
   
 }
